@@ -1,0 +1,27 @@
+name: Generar Flyers Automaticamente
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pages: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+      - run: pip install pandas requests Pillow gspread oauth2client
+      - name: Ejecutar Script
+        env:
+          GOOGLE_SHEETS_JSON: ${{ secrets.GOOGLE_SHEETS_JSON }}
+        run: python generar_flyers.py
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: 'docs/'
+      - uses: actions/deploy-pages@v4
