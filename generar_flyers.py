@@ -11,7 +11,7 @@ from oauth2client.service_account import ServiceAccountCredentials
 # --- CONFIGURACIÓN ---
 SHEET_ID = "10_VQTvW_Dkpg1rQ-nq2vkATwTwxmoFhqfUIKqxv6Aow"
 USUARIO_GITHUB = "JefersonCruzC" 
-REPO_NOMBRE = "Generar_Flyers_Juntoz" # Nombre de tu nuevo repo
+REPO_NOMBRE = "GenerarFlyers_Juntoz" # Nombre de tu nuevo repo
 URL_BASE_PAGES = f"https://{USUARIO_GITHUB}.github.io/{REPO_NOMBRE}/flyers/"
 FONT_PATH = "LiberationSans-Bold.ttf"
 
