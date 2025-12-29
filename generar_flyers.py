@@ -6,12 +6,13 @@ import os
 import gspread
 import json
 import textwrap
+import time
 from oauth2client.service_account import ServiceAccountCredentials
 
 # --- CONFIGURACIÓN ---
 SHEET_ID = "10_VQTvW_Dkpg1rQ-nq2vkATwTwxmoFhqfUIKqxv6Aow"
 USUARIO_GITHUB = "JefersonCruzC" 
-REPO_NOMBRE = "GenerarFlyers_Obsoletos" # Nombre de tu nuevo repo
+REPO_NOMBRE = "GenerarFlyers_Obsoletos"
 URL_BASE_PAGES = f"https://{USUARIO_GITHUB}.github.io/{REPO_NOMBRE}/flyers/"
 FONT_PATH = "LiberationSans-Bold.ttf"
 
@@ -23,101 +24,114 @@ def conectar_sheets():
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
     creds = ServiceAccountCredentials.from_json_keyfile_dict(info_creds, scope)
     client = gspread.authorize(creds)
-    return client.open_by_key(SHEET_ID).sheet1
+    # Seleccionamos específicamente la hoja por nombre
+    return client.open_by_key(SHEET_ID).worksheet("Detalle de Inventario")
 
 def descargar_imagen(url):
-    if not url or str(url) == 'nan':
+    if not url or str(url).lower() == 'nan' or str(url).strip() == "":
         return None
     try:
         headers = {"User-Agent": "Mozilla/5.0"}
-        res = requests.get(url, headers=headers, timeout=10)
+        res = requests.get(url, headers=headers, timeout=5)
         if res.status_code == 200:
             return Image.open(BytesIO(res.content)).convert("RGBA")
-        return None
-    except Exception as e:
-        print(f"Error descargando {url}: {e}")
+    except:
         return None
 
-def crear_flyer(productos, flyer_id):
-    # Lienzo: 1200 ancho x 1800 alto
+def crear_flyer(productos, tienda_nombre, flyer_count):
     flyer = Image.new('RGB', (1200, 1800), color='white')
     draw = ImageDraw.Draw(flyer)
     
-    # --- CABECERA ---
-    # Dibujar fondo morado arriba
+    # CABECERA
     draw.rectangle([0, 0, 1200, 400], fill=(102, 0, 153))
-    # Logo
     logo_img = descargar_imagen("https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQfE4betnoplLem-rHmrOt2gqS7zMBYV8D3aw&s")
     if logo_img:
         logo_img.thumbnail((300, 150))
-        flyer.paste(logo_img, (450, 50), logo_img)
+        flyer.paste(logo_img, (450, 40), logo_img)
     
-    # Texto Cabecera
-    f_header = ImageFont.truetype(FONT_PATH, 60)
-    draw.text((350, 200), "BOMBAS DEL MES", font=f_header, fill="white")
-    
-    # --- CUADRÍCULA DE PRODUCTOS (2 columnas x 3 filas) ---
-    anchos = [50, 625] # X para col 1 y col 2
-    altos = [450, 900, 1350] # Y para fila 1, 2 y 3
+    # Título dinámico con nombre de tienda
+    f_header = ImageFont.truetype(FONT_PATH, 50)
+    # Ajustar texto largo de tienda
+    wrapped_tienda = textwrap.wrap(tienda_nombre.upper(), width=30)
+    y_header = 180
+    for line in wrapped_tienda[:2]:
+        draw.text((600 - draw.textlength(line, f_header)//2, y_header), line, font=f_header, fill="white")
+        y_header += 70
+
+    # CUADRÍCULA
+    anchos = [50, 625]
+    altos = [450, 900, 1350]
     
     f_marca = ImageFont.truetype(FONT_PATH, 22)
-    f_promo = ImageFont.truetype(FONT_PATH, 40)
-    f_precio = ImageFont.truetype(FONT_PATH, 25)
+    f_titulo = ImageFont.truetype(FONT_PATH, 24)
+    f_promo = ImageFont.truetype(FONT_PATH, 45)
+    f_codigo = ImageFont.truetype(FONT_PATH, 28)
 
     for i, prod in enumerate(productos):
-        col = i % 2
-        fila = i // 2
-        x = anchos[col]
-        y = altos[fila]
+        if i >= 6: break
+        col, fila = i % 2, i // 2
+        x, y = anchos[col], altos[fila]
         
-        # Marco del producto
         draw.rectangle([x, y, x+520, y+420], outline=(230, 230, 230), width=2)
         
-        # Imagen
         img_prod = descargar_imagen(prod['image_link'])
         if img_prod:
             img_prod.thumbnail((250, 250))
-            flyer.paste(img_prod, (x+135, y+20), img_prod)
+            flyer.paste(img_prod, (x + (520 - img_prod.width)//2, y+20), img_prod)
         
-        # Datos: Marca y Título
-        draw.text((x+20, y+280), str(prod['brand'])[:20], font=f_marca, fill="gray")
-        titulo_corto = textwrap.shorten(str(prod['title']), width=35, placeholder="...")
-        draw.text((x+20, y+310), titulo_corto, font=f_marca, fill="black")
+        # Datos
+        draw.text((x+20, y+280), str(prod['Nombre Marca'])[:30], font=f_marca, fill="gray")
+        titulo = textwrap.shorten(str(prod['Nombre Articulo']), width=35, placeholder="...")
+        draw.text((x+20, y+310), titulo, font=f_titulo, fill="black")
         
-        # Precios
-        p_sale = str(prod['sale_price']).replace(" PEN", "")
-        draw.text((x+20, y+350), f"S/ {p_sale}", font=f_promo, fill="red")
+        # Precio y Código Articulo debajo
+        p_sale = str(prod['S/.ACTUAL']).replace("S/.", "").strip()
+        draw.text((x+20, y+345), f"S/ {p_sale}", font=f_promo, fill="red")
         
-        p_reg = "S/ " + str(prod['price']).replace(" PEN", "")
-        draw.text((x+300, y+365), p_reg, font=f_precio, fill="gray")
-        draw.line([x+300, y+375, x+450, y+375], fill="gray", width=2)
+        cod_art = f"SKU: {prod['%Cod Articulo']}"
+        draw.text((x+20, y+395), cod_art, font=f_codigo, fill=(102, 0, 153))
 
-    # Guardar
-    nombre_archivo = f"flyer_{flyer_id}.jpg"
-    flyer.save(os.path.join(output_dir, nombre_archivo), "JPEG", quality=85)
+    # Nombre archivo: Tienda + correlativo
+    tienda_clean = "".join(x for x in tienda_nombre if x.isalnum())[:15]
+    nombre_archivo = f"flyer_{tienda_clean}_{flyer_count}.jpg"
+    flyer.save(os.path.join(output_dir, nombre_archivo), "JPEG", quality=80, optimize=True)
     return URL_BASE_PAGES + nombre_archivo
 
-# --- PROCESO ---
+# --- PROCESO PRINCIPAL ---
 hoja = conectar_sheets()
-df = pd.DataFrame(hoja.get_all_records())
+data = hoja.get_all_records()
+df = pd.DataFrame(data)
 
-print(f"Leídos {len(df)} productos. Generando flyers...")
+# Agrupar por Tienda Retail
+grupos_tienda = df.groupby('Tienda Retail')
+links_resultado = [""] * len(df)
 
-links_generados = ["" for _ in range(len(df))]
+print(f"Procesando {len(grupos_tienda)} tiendas...")
 
-# Procesar en grupos de 6
-for i in range(0, len(df), 6):
-    grupo = df.iloc[i : i+6].to_dict('records')
-    # flyer_id usamos el ID del primer producto del grupo
-    flyer_url = crear_flyer(grupo, grupo[0]['id'])
-    
-    # Asignar el mismo link a los 6 espacios correspondientes
-    for j in range(len(grupo)):
-        links_generados[i + j] = flyer_url
+for nombre_tienda, group in grupos_tienda:
+    indices = group.index.tolist()
+    # Procesar productos de esta tienda en bloques de 6
+    for i in range(0, len(indices), 6):
+        bloque_indices = indices[i:i+6]
+        bloque_productos = df.loc[bloque_indices].to_dict('records')
+        
+        # Crear flyer
+        url_flyer = crear_flyer(bloque_productos, str(nombre_tienda), i//6 + 1)
+        
+        # Asignar URL a cada producto del bloque
+        for idx in bloque_indices:
+            links_resultado[idx] = url_flyer
 
-# Actualizar Google Sheets con la nueva columna
-df['link_flyer'] = links_generados
+df['link_flyer'] = links_resultado
+
+# Actualizar Google Sheets por bloques (Resistencia para 10k filas)
+print("Actualizando Google Sheets...")
 lista_final = [df.columns.tolist()] + df.values.tolist()
 hoja.clear()
-hoja.update('A1', lista_final)
-print("¡Flyers generados y Sheets actualizado!")
+
+for i in range(0, len(lista_final), 2000):
+    hoja.append_rows(lista_final[i:i+2000])
+    print(f"Sincronizados {i+2000} registros...")
+    time.sleep(2)
+
+print("¡Todo listo!")
