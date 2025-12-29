@@ -26,11 +26,16 @@ def conectar_sheets():
     return client.open_by_key(SHEET_ID).sheet1
 
 def descargar_imagen(url):
+    if not url or str(url) == 'nan':
+        return None
     try:
         headers = {"User-Agent": "Mozilla/5.0"}
         res = requests.get(url, headers=headers, timeout=10)
-        return Image.open(BytesIO(res.content)).convert("RGBA")
-    except:
+        if res.status_code == 200:
+            return Image.open(BytesIO(res.content)).convert("RGBA")
+        return None
+    except Exception as e:
+        print(f"Error descargando {url}: {e}")
         return None
 
 def crear_flyer(productos, flyer_id):
