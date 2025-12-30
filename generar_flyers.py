@@ -41,6 +41,20 @@ def descargar_imagen(url):
     except:
         return None
 
+def formatear_precio(valor):
+    """Fuerza el formato 000,00 tratando casos de números pegados"""
+    s = str(valor).replace("S/.", "").replace("S/", "").strip()
+    if not s or s == "0": return "0,00"
+    
+    # Si el número viene como 41641 pero debería ser 416,41
+    if "," not in s and "." not in s and len(s) > 2:
+        # Asumimos que los últimos 2 dígitos son decimales
+        s = s[:-2] + "," + s[-2:]
+    else:
+        s = s.replace(".", ",")
+        if "," not in s: s += ",00"
+    return s
+
 def crear_flyer(productos, tienda_nombre, flyer_count):
     flyer = Image.new('RGB', (1200, 1800), color=COLOR_AMARILLO)
     draw = ImageDraw.Draw(flyer)
@@ -54,7 +68,7 @@ def crear_flyer(productos, tienda_nombre, flyer_count):
         tienda_bg.paste(overlay, (0, 0), overlay)
         flyer.paste(tienda_bg, (0, 0))
 
-    # Logo (Separado del recuadro de tienda)
+    # Logo
     logo_url = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRkl4lFS8XSvCHa8o1t35NE01cSQZQ2KAcVAg&s"
     logo_img = descargar_imagen(logo_url)
     if logo_img:
@@ -68,16 +82,14 @@ def crear_flyer(productos, tienda_nombre, flyer_count):
         flyer.paste(circulo, (940, 20), circulo)
         flyer.paste(logo_img, (940 + (circ_size-size)//2, 20 + (circ_size-size)//2), mask)
 
-    # Recuadro Tienda Adaptativo (Bajado para evitar al logo)
+    # Recuadro Tienda
     f_tienda = ImageFont.truetype(FONT_PATH, 35)
     txt_tienda = f"TIENDA: {tienda_nombre.upper()}"
     tw = draw.textlength(txt_tienda, font=f_tienda)
-    padding_h = 25
-    # Definimos el recuadro a la derecha, pero con margen superior respecto al logo
-    draw.rounded_rectangle([1170 - tw - (padding_h*2), 280, 1170, 360], radius=40, fill=COLOR_AMARILLO)
-    draw.text((1170 - tw - padding_h, 295), txt_tienda, font=f_tienda, fill=COLOR_NEGRO)
+    draw.rounded_rectangle([1170 - tw - 50, 280, 1170, 360], radius=40, fill=COLOR_AMARILLO)
+    draw.text((1170 - tw - 25, 295), txt_tienda, font=f_tienda, fill=COLOR_NEGRO)
 
-    # Eslogan Nivelado
+    # Eslogan
     f_slogan = ImageFont.truetype(FONT_PATH, 42)
     slogan = "¡APROVECHA ESTAS OFERTAS IRRESISTIBLES!"
     sw = draw.textlength(slogan, font=f_slogan)
@@ -89,8 +101,8 @@ def crear_flyer(productos, tienda_nombre, flyer_count):
     altos = [530, 950, 1370]
     f_marca = ImageFont.truetype(FONT_PATH, 18)
     f_art = ImageFont.truetype(FONT_PATH, 22)
-    f_precio = ImageFont.truetype(FONT_PATH, 48)
-    f_simbolo = ImageFont.truetype(FONT_PATH, 28) # Símbolo S/ más pequeño
+    f_precio = ImageFont.truetype(FONT_PATH, 50)
+    f_simbolo = ImageFont.truetype(FONT_PATH, 28)
     f_sku = ImageFont.truetype(FONT_PATH, 20)
 
     for i, prod in enumerate(productos):
@@ -103,41 +115,44 @@ def crear_flyer(productos, tienda_nombre, flyer_count):
             img_p.thumbnail((230, 230))
             flyer.paste(img_p, (x+20, y + (400-img_p.height)//2), img_p)
         
-        tx, ty = x + 265, y + 60 # Bajamos el inicio del texto
+        tx, ty = x + 265, y + 40 # Subimos el texto
         
         # Marca
         marca_txt = str(prod['Nombre Marca']).upper()
-        draw.text((tx + (260 - draw.textlength(marca_txt, f_marca))//2, ty), marca_txt, font=f_marca, fill=COLOR_GRIS_TEXTO)
+        draw.text((tx + (265 - draw.textlength(marca_txt, f_marca))//2, ty), marca_txt, font=f_marca, fill=COLOR_GRIS_TEXTO)
         
-        ty += 35
+        ty += 30
         # Título
         lines = textwrap.wrap(str(prod['Nombre Articulo']), width=22)
-        for line in lines[:2]: # Limitado a 2 para dejar espacio abajo
+        for line in lines[:2]:
             draw.text((tx, ty), line, font=f_art, fill=COLOR_NEGRO)
             ty += 28
             
-        # Bloque Precio + SKU Centrados y Redondeados
-        ty_bloque = y + 230 # Espacio entre título y recuadros
+        # Bloque Precio + SKU (Unidos)
+        ty_bloque = ty + 15 # Reducimos separación
+        rec_w = 265
         
-        # Procesar Precio (Corrección de coma)
-        raw_price = str(prod['S/.ACTUAL']).replace("S/.", "").strip()
-        if "," in raw_price and "." not in raw_price:
-            raw_price = raw_price.replace(",", ".")
+        # Precio
+        p_texto = formatear_precio(prod['S/.ACTUAL'])
+        # Recuadro Amarillo (Bordes superiores redondeados, inferiores rectos)
+        draw.rounded_rectangle([tx, ty_bloque, tx + rec_w, ty_bloque + 80], radius=20, fill=COLOR_AMARILLO)
+        draw.rectangle([tx, ty_bloque + 40, tx + rec_w, ty_bloque + 80], fill=COLOR_AMARILLO) # Rectifica base
         
-        # Dibujar Recuadro Precio (Amarillo)
-        draw.rounded_rectangle([tx, ty_bloque, tx+265, ty_bloque + 80], radius=20, fill=COLOR_AMARILLO)
-        # Centrar "S/ 00.00"
-        full_p_txt = f"S/ {raw_price}"
-        tw_p = draw.textlength(full_p_txt, font=f_precio) # Aproximación para centrado
-        # Dibujamos S/ pequeño y luego el precio
-        draw.text((tx + 25, ty_bloque + 25), "S/", font=f_simbolo, fill=COLOR_NEGRO)
-        draw.text((tx + 65, ty_bloque + 12), raw_price, font=f_precio, fill=COLOR_NEGRO)
+        # Dibujar S/ y Precio centrado en el recuadro
+        full_price_txt = f"S/ {p_texto}"
+        tw_total = draw.textlength(full_price_txt, font=f_precio)
+        start_px = tx + (rec_w - tw_total)//2
+        draw.text((start_px, ty_bloque + 25), "S/", font=f_simbolo, fill=COLOR_NEGRO)
+        draw.text((start_px + 40, ty_bloque + 12), p_texto, font=f_precio, fill=COLOR_NEGRO)
         
-        # Dibujar Recuadro SKU (Negro)
+        # SKU
         sku_val = str(prod['%Cod Articulo'])
-        draw.rounded_rectangle([tx, ty_bloque + 85, tx+265, ty_bloque + 125], radius=15, fill=COLOR_NEGRO)
+        # Recuadro Negro (Bordes inferiores redondeados, superiores rectos)
+        draw.rounded_rectangle([tx, ty_bloque + 80, tx + rec_w, ty_bloque + 120], radius=15, fill=COLOR_NEGRO)
+        draw.rectangle([tx, ty_bloque + 80, tx + rec_w, ty_bloque + 100], fill=COLOR_NEGRO) # Rectifica tope
+        
         tw_sku = draw.textlength(sku_val, font=f_sku)
-        draw.text((tx + (265 - tw_sku)//2, ty_bloque + 93), sku_val, font=f_sku, fill=COLOR_BLANCO)
+        draw.text((tx + (rec_w - tw_sku)//2, ty_bloque + 88), sku_val, font=f_sku, fill=COLOR_BLANCO)
 
     path = os.path.join(output_dir, f"{tienda_nombre}_{flyer_count}.jpg")
     flyer.save(path, "JPEG", quality=85)
@@ -150,7 +165,7 @@ grupos_tienda = df.groupby('Tienda Retail')
 tienda_links_pdf = []
 
 for nombre_tienda, grupo in grupos_tienda:
-    if str(nombre_tienda).strip() == "": continue
+    if not str(nombre_tienda).strip(): continue
     print(f"Generando PDF para: {nombre_tienda}")
     paginas_img = []
     indices = grupo.index.tolist()
@@ -168,7 +183,6 @@ for nombre_tienda, grupo in grupos_tienda:
         url_pdf = f"https://{USUARIO_GITHUB}.github.io/{REPO_NOMBRE}/flyers/{pdf_fn}"
         tienda_links_pdf.append([nombre_tienda, url_pdf])
 
-# Actualizar Pestaña FLYER_TIENDA
 try:
     hoja_pdf = spreadsheet.worksheet("FLYER_TIENDA")
 except:
