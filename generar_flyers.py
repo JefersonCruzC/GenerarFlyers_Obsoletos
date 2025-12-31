@@ -7,6 +7,7 @@ import gspread
 import json
 import textwrap
 import time
+from datetime import datetime, timedelta
 from oauth2client.service_account import ServiceAccountCredentials
 
 # --- CONFIGURACIÓN ---
@@ -23,6 +24,9 @@ COLOR_GRIS_TEXTO = (60, 60, 60)
 
 output_dir = "docs/flyers"
 os.makedirs(output_dir, exist_ok=True)
+
+# Obtener fecha y hora de Perú (UTC-5)
+fecha_peru = (datetime.utcnow() - timedelta(hours=5)).strftime("%d/%m/%Y %I:%M %p")
 
 def conectar_sheets():
     info_creds = json.loads(os.environ['GOOGLE_SHEETS_JSON'])
@@ -42,13 +46,9 @@ def descargar_imagen(url):
         return None
 
 def formatear_precio(valor):
-    """Fuerza el formato 000,00 tratando casos de números pegados"""
     s = str(valor).replace("S/.", "").replace("S/", "").strip()
     if not s or s == "0": return "0,00"
-    
-    # Si el número viene como 41641 pero debería ser 416,41
     if "," not in s and "." not in s and len(s) > 2:
-        # Asumimos que los últimos 2 dígitos son decimales
         s = s[:-2] + "," + s[-2:]
     else:
         s = s.replace(".", ",")
@@ -89,6 +89,10 @@ def crear_flyer(productos, tienda_nombre, flyer_count):
     draw.rounded_rectangle([1170 - tw - 50, 280, 1170, 360], radius=40, fill=COLOR_AMARILLO)
     draw.text((1170 - tw - 25, 295), txt_tienda, font=f_tienda, fill=COLOR_NEGRO)
 
+    # ESTAMPADO DE FECHA Y HORA (Perú)
+    f_fecha = ImageFont.truetype(FONT_PATH, 24)
+    draw.text((40, 360), f"Generado: {fecha_peru}", font=f_fecha, fill=COLOR_AMARILLO)
+
     # Eslogan
     f_slogan = ImageFont.truetype(FONT_PATH, 42)
     slogan = "¡APROVECHA ESTAS OFERTAS IRRESISTIBLES!"
@@ -115,41 +119,31 @@ def crear_flyer(productos, tienda_nombre, flyer_count):
             img_p.thumbnail((230, 230))
             flyer.paste(img_p, (x+20, y + (400-img_p.height)//2), img_p)
         
-        tx, ty = x + 265, y + 40 # Subimos el texto
-        
-        # Marca
+        tx, ty = x + 265, y + 40
         marca_txt = str(prod['Nombre Marca']).upper()
         draw.text((tx + (265 - draw.textlength(marca_txt, f_marca))//2, ty), marca_txt, font=f_marca, fill=COLOR_GRIS_TEXTO)
         
         ty += 30
-        # Título
         lines = textwrap.wrap(str(prod['Nombre Articulo']), width=22)
         for line in lines[:2]:
             draw.text((tx, ty), line, font=f_art, fill=COLOR_NEGRO)
             ty += 28
             
-        # Bloque Precio + SKU (Unidos)
-        ty_bloque = ty + 15 # Reducimos separación
+        ty_bloque = ty + 15
         rec_w = 265
-        
-        # Precio
         p_texto = formatear_precio(prod['S/.ACTUAL'])
-        # Recuadro Amarillo (Bordes superiores redondeados, inferiores rectos)
         draw.rounded_rectangle([tx, ty_bloque, tx + rec_w, ty_bloque + 80], radius=20, fill=COLOR_AMARILLO)
-        draw.rectangle([tx, ty_bloque + 40, tx + rec_w, ty_bloque + 80], fill=COLOR_AMARILLO) # Rectifica base
+        draw.rectangle([tx, ty_bloque + 40, tx + rec_w, ty_bloque + 80], fill=COLOR_AMARILLO)
         
-        # Dibujar S/ y Precio centrado en el recuadro
         full_price_txt = f"S/ {p_texto}"
         tw_total = draw.textlength(full_price_txt, font=f_precio)
         start_px = tx + (rec_w - tw_total)//2
         draw.text((start_px, ty_bloque + 25), "S/", font=f_simbolo, fill=COLOR_NEGRO)
         draw.text((start_px + 40, ty_bloque + 12), p_texto, font=f_precio, fill=COLOR_NEGRO)
         
-        # SKU
         sku_val = str(prod['%Cod Articulo'])
-        # Recuadro Negro (Bordes inferiores redondeados, superiores rectos)
         draw.rounded_rectangle([tx, ty_bloque + 80, tx + rec_w, ty_bloque + 120], radius=15, fill=COLOR_NEGRO)
-        draw.rectangle([tx, ty_bloque + 80, tx + rec_w, ty_bloque + 100], fill=COLOR_NEGRO) # Rectifica tope
+        draw.rectangle([tx, ty_bloque + 80, tx + rec_w, ty_bloque + 100], fill=COLOR_NEGRO)
         
         tw_sku = draw.textlength(sku_val, font=f_sku)
         draw.text((tx + (rec_w - tw_sku)//2, ty_bloque + 88), sku_val, font=f_sku, fill=COLOR_BLANCO)
