@@ -85,19 +85,29 @@ def crear_flyer(productos, tienda_nombre, flyer_count):
         flyer.paste(bg, (0, 0))
     except: pass
 
-    # 2. LOGO (CAMBIO A FIT PARA MÁXIMO TAMAÑO)
+    # 2. LOGO (AJUSTADO Y CENTRADO)
     try:
         logo = Image.open(logo_path).convert("RGBA")
+        # Definir dimensiones del contenedor blanco
+        c_ancho, c_alto = 500, 400
+        c_x = ANCHO - c_ancho - 100 # Margen derecho
+        
         if es_efe:
-            draw.ellipse([ANCHO-620, 30, ANCHO-80, 570], fill=BLANCO)
-            # FIT fuerza al logo a llenar el espacio definido
-            logo = ImageOps.fit(logo, (200, 200), method=Image.Resampling.LANCZOS)
-            flyer.paste(logo, (ANCHO-620 + (540-480)//2, 30 + (540-480)//2), logo)
+            c_y = 50
+            draw.ellipse([c_x, c_y, c_x + c_ancho, c_y + c_ancho], fill=BLANCO)
+            logo.thumbnail((380, 380)) # Tamaño del logo
+            # Centrado matemático
+            lx = c_x + (c_ancho - logo.width) // 2
+            ly = c_y + (c_ancho - logo.height) // 2
+            flyer.paste(logo, (lx, ly), logo)
         else:
-            draw.rounded_rectangle([ANCHO-620, 0, ANCHO-80, 420], radius=60, fill=BLANCO)
-            draw.rectangle([ANCHO-620, 0, ANCHO-80, 60], fill=BLANCO)
-            logo = ImageOps.fit(logo, (280, 200), method=Image.Resampling.LANCZOS)
-            flyer.paste(logo, (ANCHO-620 + (540-500)//2, 20), logo)
+            c_y = 0
+            draw.rounded_rectangle([c_x, c_y, c_x + c_ancho, c_y + c_alto], radius=60, fill=BLANCO)
+            draw.rectangle([c_x, c_y, c_x + c_ancho, c_y + 60], fill=BLANCO) # Recto arriba
+            logo.thumbnail((420, 320))
+            lx = c_x + (c_ancho - logo.width) // 2
+            ly = c_y + (c_alto - logo.height) // 2
+            flyer.paste(logo, (lx, ly), logo)
     except: pass
 
     # 3. NOMBRE TIENDA
@@ -129,9 +139,8 @@ def crear_flyer(productos, tienda_nombre, flyer_count):
     draw.rectangle([0, 1030, ANCHO, 1260], fill=color_slogan_bg)
     draw.text(((ANCHO-sw)//2, 1085), slogan_txt, font=f_slogan, fill=BLANCO if es_efe else NEGRO)
 
-    # 6. PRODUCTOS (REAJUSTE DE ESPACIADO VERTICAL)
+    # 6. PRODUCTOS
     anchos = [110, 1300]
-    # Espaciado aumentado significativamente para evitar que se vean pegados
     altos = [1350, 2150, 2950] 
     
     f_marca_prod = ImageFont.truetype(FONT_SEMIBOLD, 50)
@@ -140,7 +149,6 @@ def crear_flyer(productos, tienda_nombre, flyer_count):
     for i, prod in enumerate(productos):
         if i >= 6: break
         x, y = anchos[i%2], altos[i//2]
-        # Recuadro blanco de producto con más altura para el texto
         draw.rounded_rectangle([x, y, x+1090, y+760], radius=70, fill=BLANCO)
         
         img_p = descargar_imagen(prod['image_link'])
@@ -154,7 +162,6 @@ def crear_flyer(productos, tienda_nombre, flyer_count):
         marca = str(prod['Nombre Marca']).upper()
         draw.text((tx + (area_texto_w - draw.textlength(marca, f_marca_prod))//2, y+50), marca, font=f_marca_prod, fill=GRIS_MARCA)
         
-        # Título Dinámico con control estricto de margen
         titulo = str(prod['Nombre Articulo'])
         f_size = 65
         f_art_prod = ImageFont.truetype(FONT_REGULAR_COND, f_size)
@@ -174,7 +181,7 @@ def crear_flyer(productos, tienda_nombre, flyer_count):
             ty += f_size + 5
             
         # BLOQUES DE PRECIO
-        ty_b = y + 450 # Bajado un poco para dar aire al título
+        ty_b = y + 450
         p_val = formatear_precio(prod['S/.ACTUAL'])
         rec_color_p = EFE_AZUL if es_efe else LC_AMARILLO
         rec_color_s = EFE_NARANJA if es_efe else NEGRO
