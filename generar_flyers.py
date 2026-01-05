@@ -10,32 +10,34 @@ import time
 from datetime import datetime, timedelta
 from oauth2client.service_account import ServiceAccountCredentials
 
-# --- CONFIGURACIÓN DE LIENZO Y RUTAS ---
-ANCHO, ALTO = 2500, 3750  # Resolución pedida
+# --- CONFIGURACIÓN DE LIENZO ---
+ANCHO, ALTO = 2500, 3750
 SHEET_ID = "10_VQTvW_Dkpg1rQ-nq2vkATwTwxmoFhqfUIKqxv6Aow"
 USUARIO_GITHUB = "JefersonCruzC" 
 REPO_NOMBRE = "GenerarFlyers_Obsoletos"
 URL_BASE_PAGES = f"https://{USUARIO_GITHUB}.github.io/{REPO_NOMBRE}/flyers/"
 
-# Fuentes (Asegúrate de tener estos archivos en el repo)
-FONT_BOLD = "Mark Simonson - Proxima Nova Alt Condensed Bold.otf"
-FONT_EXTRABOLD = "Mark Simonson - Proxima Nova Alt Condensed Extrabold.otf"
-FONT_REGULAR = "Mark Simonson - Proxima Nova Alt Condensed Regular.otf"
-FONT_MEDIUM = "Rubik-Medium.ttf"
+# --- RUTAS DE FUENTES ---
+FONT_BOLD_COND = "Mark Simonson - Proxima Nova Alt Condensed Bold.otf"
+FONT_EXTRABOLD_COND = "Mark Simonson - Proxima Nova Alt Condensed Extrabold.otf"
+FONT_REGULAR_COND = "Mark Simonson - Proxima Nova Alt Condensed Regular.otf"
+FONT_EXTRABOLD = "Mark Simonson - Proxima Nova Extrabold.otf"
+FONT_SEMIBOLD = "Mark Simonson - Proxima Nova Semibold.otf"
+FONT_RUBIK = "Rubik-Medium.ttf"
 
-# Colores Identidad
-CURACAO_AMARILLO = (255, 203, 5)     # Amarillo LC
-CURACAO_AMARILLO_OSCURO = (240, 190, 0) # Fondo LC
-EFE_AZUL = (0, 50, 130)             # Azul EFE
-EFE_NARANJA = (255, 100, 0)         # Naranja EFE
-EFE_AZUL_FONDO = (0, 40, 100)       # Fondo EFE
+# --- COLORES ---
+LC_AMARILLO = (255, 203, 5)
+LC_AMARILLO_OSCURO = (235, 180, 0)
+EFE_AZUL = (0, 107, 213) # #006BD5
+EFE_AZUL_OSCURO = (0, 60, 150)
+EFE_NARANJA = (255, 100, 0)
 BLANCO = (255, 255, 255)
 NEGRO = (0, 0, 0)
+GRIS_MARCA = (100, 100, 100)
 
 output_dir = "docs/flyers"
 os.makedirs(output_dir, exist_ok=True)
 
-# Fecha Perú
 fecha_peru = (datetime.utcnow() - timedelta(hours=5)).strftime("%d/%m/%Y %I:%M %p")
 
 def conectar_sheets():
@@ -64,150 +66,181 @@ def formatear_precio(valor):
     return s
 
 def crear_flyer(productos, tienda_nombre, flyer_count):
-    # Detectar Marca
     es_efe = "EFE" in tienda_nombre.upper()
-    color_fondo_base = EFE_AZUL_FONDO if es_efe else CURACAO_AMARILLO_OSCURO
-    color_slogan_bg = EFE_AZUL if es_efe else CURACAO_AMARILLO
     
-    flyer = Image.new('RGB', (ANCHO, ALTO), color=color_fondo_base)
+    # Configuración de Marca
+    color_fondo = EFE_AZUL_OSCURO if es_efe else LC_AMARILLO_OSCURO
+    color_slogan_bg = EFE_AZUL if es_efe else LC_AMARILLO
+    logo_path = "logo-efe-sin-fondo.png" if es_efe else "logo-lc-sin-fondo.png"
+    tienda_bg_path = "efe tienda.jpg" if es_efe else "LC-MIRAFLORES-LOGO-3D[2].jpg"
+    
+    flyer = Image.new('RGB', (ANCHO, ALTO), color=color_fondo)
     draw = ImageDraw.Draw(flyer)
     
-    # 1. CABECERA (Imagen Tienda)
-    img_path = "efe tienda.jpg" if es_efe else "LC-MIRAFLORES-LOGO-3D[2].jpg"
+    # 1. IMAGEN DE TIENDA (CABECERA)
     header_h = 1000
     try:
-        tienda_bg = Image.open(img_path).convert("RGBA")
-        tienda_bg = ImageOps.fit(tienda_bg, (ANCHO, header_h), method=Image.Resampling.LANCZOS)
-        overlay = Image.new('RGBA', (ANCHO, header_h), (0, 0, 0, 40)) # Más claro como pediste
-        tienda_bg.paste(overlay, (0, 0), overlay)
-        flyer.paste(tienda_bg, (0, 0))
+        bg = Image.open(tienda_bg_path).convert("RGBA")
+        bg = ImageOps.fit(bg, (ANCHO, header_h), method=Image.Resampling.LANCZOS)
+        overlay = Image.new('RGBA', (ANCHO, header_h), (0, 0, 0, 50))
+        bg.paste(overlay, (0, 0), overlay)
+        flyer.paste(bg, (0, 0))
     except: pass
 
-    # 2. LOGO Y TIENDA (DERECHA SUPERIOR)
-    logo_url = "https://images.seeklogo.com/logo-png/34/1/tiendas-efe-logo-png_seeklogo-342334.png" if es_efe else "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRkl4lFS8XSvCHa8o1t35NE01cSQZQ2KAcVAg&s"
-    logo_img = descargar_imagen(logo_url)
-    if logo_img:
-        # Contenedor Blanco Logo
-        rect_w, rect_h = 500, 450
-        if es_efe: # Circulo para EFE
-            draw.ellipse([ANCHO-550, 50, ANCHO-50, 550], fill=BLANCO)
-            logo_img.thumbnail((400, 400))
-            flyer.paste(logo_img, (ANCHO-550 + (500-logo_img.width)//2, 50 + (500-logo_img.height)//2), logo_img)
-        else: # Rectangulo redondeado abajo para LC
-            draw.rounded_rectangle([ANCHO-550, 0, ANCHO-50, 400], radius=50, fill=BLANCO)
-            logo_img.thumbnail((350, 350))
-            flyer.paste(logo_img, (ANCHO-550 + (500-logo_img.width)//2, 25), logo_img)
+    # 2. LOGO (DERECHA SUPERIOR)
+    try:
+        logo = Image.open(logo_path).convert("RGBA")
+        if es_efe:
+            draw.ellipse([ANCHO-580, 50, ANCHO-80, 550], fill=BLANCO)
+            logo.thumbnail((380, 380))
+            flyer.paste(logo, (ANCHO-580 + (500-logo.width)//2, 50 + (500-logo.height)//2), logo)
+        else:
+            # Rectángulo LC pegado arriba, redondeado solo abajo
+            draw.rounded_rectangle([ANCHO-580, 0, ANCHO-80, 420], radius=60, fill=BLANCO)
+            draw.rectangle([ANCHO-580, 0, ANCHO-80, 60], fill=BLANCO) # Quitar redondeo superior
+            logo.thumbnail((400, 400))
+            flyer.paste(logo, (ANCHO-580 + (500-logo.width)//2, 40), logo)
+    except: pass
 
-    # Nombre Tienda (Rombo / Ovalado)
-    f_tienda = ImageFont.truetype(FONT_BOLD, 80)
-    tw = draw.textlength(tienda_nombre, font=f_tienda)
-    bg_tienda = EFE_NARANJA if es_efe else BLANCO
-    txt_tienda_color = BLANCO if es_efe else NEGRO
-    # Dibujar forma (Simplificado a rounded rect para legibilidad técnica)
-    draw.rounded_rectangle([ANCHO-tw-150, 580 if es_efe else 450, ANCHO-50, 750 if es_efe else 600], radius=40, fill=bg_tienda)
-    draw.text((ANCHO-tw-100, 610 if es_efe else 480), tienda_nombre.upper(), font=f_tienda, fill=txt_tienda_color)
+    # 3. NOMBRE TIENDA
+    f_tienda = ImageFont.truetype(FONT_EXTRABOLD_COND, 90)
+    txt_tienda = tienda_nombre.upper()
+    tw_t = draw.textlength(txt_tienda, font=f_tienda)
+    
+    if es_efe:
+        # Recuadro Naranja EFE pegado derecha, redondeado izquierda
+        draw.rounded_rectangle([ANCHO - tw_t - 150, 600, ANCHO, 780], radius=50, fill=EFE_NARANJA)
+        draw.rectangle([ANCHO - 60, 600, ANCHO, 780], fill=EFE_NARANJA)
+        draw.text((ANCHO - tw_t - 80, 635), txt_tienda, font=f_tienda, fill=BLANCO)
+    else:
+        # Rombo/Triángulo Negro LC
+        points = [(ANCHO - tw_t - 250, 700), (ANCHO - tw_t - 150, 500), (ANCHO, 500), (ANCHO, 700)]
+        draw.polygon(points, fill=NEGRO)
+        draw.text((ANCHO - tw_t - 100, 550), txt_tienda, font=f_tienda, fill=LC_AMARILLO)
 
-    # 3. FECHA GENERADO (IZQUIERDA)
-    f_fecha = ImageFont.truetype(FONT_REGULAR, 50)
+    # 4. FECHA GENERADO (IZQUIERDA)
+    f_fecha = ImageFont.truetype(FONT_REGULAR_COND, 45)
     txt_gen = f"Generado: {fecha_peru}"
-    tw_gen = draw.textlength(txt_gen, font=f_fecha)
-    draw.rounded_rectangle([0, 850, tw_gen+100, 980], radius=50, fill=BLANCO) # Redondeado solo derecha (esquina simplificada)
-    draw.text((40, 885), txt_gen, font=f_fecha, fill=NEGRO)
+    tw_g = draw.textlength(txt_gen, font=f_fecha)
+    if es_efe:
+        draw.rounded_rectangle([0, 850, tw_g + 80, 960], radius=40, fill=BLANCO)
+        draw.rectangle([0, 850, 50, 960], fill=BLANCO)
+    else:
+        draw.rounded_rectangle([0, 850, tw_g + 80, 960], radius=40, fill=BLANCO)
+        draw.rectangle([0, 850, 50, 960], fill=BLANCO)
+    draw.text((40, 880), txt_gen, font=f_fecha, fill=NEGRO)
 
-    # 4. SLOGAN (CENTRO)
-    f_slogan = ImageFont.truetype(FONT_EXTRABOLD, 100)
-    slogan = "¡APROVECHA ESTAS INCREÍBLES OFERTAS!"
-    sw = draw.textlength(slogan, font=f_slogan)
-    draw.rectangle([0, 1050, ANCHO, 1250], fill=color_slogan_bg)
-    draw.text(((ANCHO-sw)//2, 1090), slogan, font=f_slogan, fill=BLANCO if es_efe else NEGRO)
+    # 5. SLOGAN (CENTRO)
+    f_slogan = ImageFont.truetype(FONT_EXTRABOLD, 105)
+    slogan_txt = "¡APROVECHA ESTAS INCREÍBLES OFERTAS!"
+    sw = draw.textlength(slogan_txt, font=f_slogan)
+    draw.rectangle([0, 1030, ANCHO, 1260], fill=color_slogan_bg)
+    draw.text(((ANCHO-sw)//2, 1085), slogan_txt, font=f_slogan, fill=BLANCO if es_efe else NEGRO)
 
-    # 5. PRODUCTOS (Cuadrícula 2x3)
-    anchos = [100, 1300]
-    altos = [1350, 2100, 2850]
-    f_marca = ImageFont.truetype(FONT_EXTRABOLD, 55)
-    f_art = ImageFont.truetype(FONT_REGULAR, 65)
-    f_precio = ImageFont.truetype(FONT_EXTRABOLD, 120)
-    f_simbolo = ImageFont.truetype(FONT_REGULAR, 70)
-    f_sku = ImageFont.truetype(FONT_BOLD, 50)
+    # 6. PRODUCTOS
+    anchos = [100, 1310]
+    altos = [1350, 2120, 2890]
+    
+    f_marca_prod = ImageFont.truetype(FONT_SEMIBOLD, 50)
+    f_art_prod = ImageFont.truetype(FONT_REGULAR_COND, 65)
+    f_precio_num = ImageFont.truetype(FONT_EXTRABOLD, 125)
+    f_simbolo_s = ImageFont.truetype(FONT_REGULAR_COND, 70)
+    f_sku_prod = ImageFont.truetype(FONT_BOLD_COND, 55)
 
     for i, prod in enumerate(productos):
         if i >= 6: break
         x, y = anchos[i%2], altos[i//2]
-        # Tarjeta blanca
-        draw.rounded_rectangle([x, y, x+1100, y+700], radius=60, fill=BLANCO)
         
-        # Imagen Producto
+        # Tarjeta Producto
+        draw.rounded_rectangle([x, y, x+1090, y+730], radius=70, fill=BLANCO)
+        
+        # Imagen
         img_p = descargar_imagen(prod['image_link'])
         if img_p:
             img_p.thumbnail((500, 500))
-            flyer.paste(img_p, (x+40, y + (700-img_p.height)//2), img_p)
-        
-        # Textos Derecha
-        tx = x + 580
-        # Marca
-        draw.text((tx, y + 80), str(prod['Nombre Marca']).upper(), font=f_marca, fill=NEGRO)
-        # Título
-        lines = textwrap.wrap(str(prod['Nombre Articulo']), width=18)
-        ty = y + 170
-        for line in lines[:3]:
-            draw.text((tx, ty), line, font=f_art, fill=NEGRO)
-            ty += 75
+            flyer.paste(img_p, (x+30, y + (730-img_p.height)//2), img_p)
             
-        # BLOQUE PRECIO + SKU
-        p_col = EFE_AZUL if es_efe else CURACAO_AMARILLO
-        s_col = EFE_NARANJA if es_efe else NEGRO
-        p_texto = formatear_precio(prod['S/.ACTUAL'])
+        # Textos Derecha
+        tx = x + 560
+        area_texto_w = 480
         
-        # Recuadro Precio
-        draw.rounded_rectangle([tx, y+450, tx+480, y+600], radius=30, fill=p_col)
-        draw.text((tx+30, y+490), "S/", font=f_simbolo, fill=BLANCO if es_efe else NEGRO)
-        draw.text((tx+120, y+465), p_texto, font=f_precio, fill=BLANCO if es_efe else NEGRO)
+        # Marca (Centrada en su área)
+        marca = str(prod['Nombre Marca']).upper()
+        draw.text((tx + (area_texto_w - draw.textlength(marca, f_marca_prod))//2, y+60), marca, font=f_marca_prod, fill=GRIS_MARCA)
         
-        # Recuadro SKU (Pegado abajo)
+        # Título Multilínea
+        titulo = str(prod['Nombre Articulo'])
+        lines = textwrap.wrap(titulo, width=20)
+        ty = y + 140
+        for line in lines[:3]:
+            draw.text((tx, ty), line, font=f_art_prod, fill=NEGRO)
+            ty += 70
+            
+        # BLOQUES DE PRECIO (Unidos)
+        ty_b = y + 430
+        p_val = formatear_precio(prod['S/.ACTUAL'])
+        rec_color_p = EFE_AZUL if es_efe else LC_AMARILLO
+        rec_color_s = EFE_NARANJA if es_efe else NEGRO
+        
+        # Recuadro Precio (Redondeado arriba)
+        draw.rounded_rectangle([tx, ty_b, tx+area_texto_w, ty_b + 140], radius=35, fill=rec_color_p)
+        draw.rectangle([tx, ty_b+70, tx+area_texto_w, ty_b+140], fill=rec_color_p)
+        
+        # Texto Precio Centrado
+        p_full = f"S/ {p_val}"
+        tw_p = draw.textlength(p_full, font=f_precio_num)
+        start_p = tx + (area_texto_w - tw_p)//2
+        draw.text((start_p, ty_b + 40), "S/", font=f_simbolo_s, fill=BLANCO if es_efe else NEGRO)
+        draw.text((start_p + 90, ty_b + 10), p_val, font=f_precio_num, fill=BLANCO if es_efe else NEGRO)
+        
+        # Recuadro SKU (Redondeado abajo)
         sku_val = str(prod['%Cod Articulo'])
-        draw.rounded_rectangle([tx+40, y+600, tx+440, y+680], radius=20, fill=s_col)
-        sw_sku = draw.textlength(sku_val, font=f_sku)
-        draw.text((tx+40 + (400-sw_sku)//2, y+615), sku_val, font=f_sku, fill=BLANCO)
+        draw.rounded_rectangle([tx, ty_b + 140, tx+area_texto_w, ty_b + 220], radius=35, fill=rec_color_s)
+        draw.rectangle([tx, ty_b + 140, tx+area_texto_w, ty_b + 170], fill=rec_color_s)
+        
+        tw_s = draw.textlength(sku_val, font=f_sku_prod)
+        draw.text((tx + (area_texto_w - tw_s)//2, ty_b + 150), sku_val, font=f_sku_prod, fill=BLANCO)
 
-    # 6. ESPACIO LEGAL (BLANCO AL FINAL)
+    # 7. ESPACIO LEGAL (PIE BLANCO)
     draw.rectangle([0, ALTO-150, ANCHO, ALTO], fill=BLANCO)
 
     path = os.path.join(output_dir, f"{tienda_nombre}_{flyer_count}.jpg")
-    flyer.save(path, "JPEG", quality=90)
+    flyer.save(path, "JPEG", quality=95)
     return flyer
 
 # --- PROCESO ---
-spreadsheet = conectar_sheets()
-df = pd.DataFrame(spreadsheet.worksheet("Detalle de Inventario").get_all_records())
-grupos_tienda = df.groupby('Tienda Retail')
+print("Conectando con Google Sheets...")
+ss = conectar_sheets()
+df = pd.DataFrame(ss.worksheet("Detalle de Inventario").get_all_records())
+grupos = df.groupby('Tienda Retail')
 tienda_links_pdf = []
 
 
 
-for nombre_tienda, grupo in grupos_tienda:
+for nombre_tienda, grupo in grupos:
     if not str(nombre_tienda).strip(): continue
-    print(f"Generando: {nombre_tienda}")
-    paginas_img = []
+    print(f"Generando PDF: {nombre_tienda}")
+    paginas = []
     indices = grupo.index.tolist()
     
     for i in range(0, len(indices), 6):
         bloque = df.loc[indices[i:i+6]].to_dict('records')
-        img_pag = crear_flyer(bloque, str(nombre_tienda), (i//6)+1)
-        paginas_img.append(img_pag.convert("RGB"))
+        img_f = crear_flyer(bloque, str(nombre_tienda), (i//6)+1)
+        paginas.append(img_f.convert("RGB"))
     
-    if paginas_img:
-        tienda_clean = "".join(x for x in str(nombre_tienda) if x.isalnum())
-        pdf_fn = f"PDF_{tienda_clean}.pdf"
+    if paginas:
+        t_clean = "".join(x for x in str(nombre_tienda) if x.isalnum())
+        pdf_fn = f"PDF_{t_clean}.pdf"
         pdf_path = os.path.join(output_dir, pdf_fn)
-        paginas_img[0].save(pdf_path, save_all=True, append_images=paginas_img[1:])
-        url_pdf = f"https://{USUARIO_GITHUB}.github.io/{REPO_NOMBRE}/flyers/{pdf_fn}"
-        tienda_links_pdf.append([nombre_tienda, url_pdf])
+        paginas[0].save(pdf_path, save_all=True, append_images=paginas[1:])
+        tienda_links_pdf.append([nombre_tienda, f"{URL_BASE_PAGES}{pdf_fn}"])
 
+# Actualizar Hoja
 try:
-    hoja_pdf = spreadsheet.worksheet("FLYER_TIENDA")
+    hoja_pdf = ss.worksheet("FLYER_TIENDA")
 except:
-    hoja_pdf = spreadsheet.add_worksheet(title="FLYER_TIENDA", rows="100", cols="2")
+    hoja_pdf = ss.add_worksheet(title="FLYER_TIENDA", rows="100", cols="2")
 
 hoja_pdf.clear()
 hoja_pdf.update('A1', [["TIENDA RETAIL", "LINK PDF FLYERS"]] + tienda_links_pdf)
-print("¡Proceso finalizado!")
+print("¡Proceso Finalizado!")
