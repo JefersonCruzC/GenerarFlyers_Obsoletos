@@ -85,17 +85,17 @@ def crear_flyer(productos, tienda_nombre, flyer_count):
         flyer.paste(bg, (0, 0))
     except: pass
 
-    # 2. LOGO (TAMAÑO MÁXIMO Y CENTRADO)
+    # 2. LOGO (TAMAÑO REDUCIDO Y CENTRADO MATEMÁTICO)
     try:
         logo = Image.open(logo_path).convert("RGBA")
         
         if es_efe:
-            # Apartado blanco EFE (Círculo)
-            diametro = 550
+            # Apartado blanco EFE (Círculo reducido)
+            diametro = 460 # Antes 550
             c_x, c_y = ANCHO - diametro - 80, 40
             draw.ellipse([c_x, c_y, c_x + diametro, c_y + diametro], fill=BLANCO)
             
-            # Forzar logo a ocupar casi todo el círculo (90% del espacio)
+            # Logo ocupando el 85% del nuevo diámetro
             logo_w = int(diametro * 0.85)
             logo = ImageOps.contain(logo, (logo_w, logo_w), method=Image.Resampling.LANCZOS)
             
@@ -103,19 +103,19 @@ def crear_flyer(productos, tienda_nombre, flyer_count):
             ly = c_y + (diametro - logo.height) // 2
             flyer.paste(logo, (lx, ly), logo)
         else:
-            # Apartado blanco LC (Rectángulo redondeado abajo)
-            c_ancho, c_alto = 600, 450
+            # Apartado blanco LC (Rectángulo reducido)
+            c_ancho, c_alto = 500, 380 # Antes 600, 450
             c_x, c_y = ANCHO - c_ancho - 80, 0
-            draw.rounded_rectangle([c_x, c_y, c_x + c_ancho, c_y + c_alto], radius=60, fill=BLANCO)
-            draw.rectangle([c_x, c_y, c_x + c_ancho, c_y + 60], fill=BLANCO) # Quitar redondeo arriba
+            draw.rounded_rectangle([c_x, c_y, c_x + c_ancho, c_y + c_alto], radius=50, fill=BLANCO)
+            draw.rectangle([c_x, c_y, c_x + c_ancho, c_y + 40], fill=BLANCO) 
             
-            # Forzar logo a ocupar el rectángulo (90% del ancho)
-            logo_w = int(c_ancho * 0.88)
+            # Logo ajustado al nuevo tamaño
+            logo_w = int(c_ancho * 0.85)
             logo_h = int(c_alto * 0.80)
             logo = ImageOps.contain(logo, (logo_w, logo_h), method=Image.Resampling.LANCZOS)
             
             lx = c_x + (c_ancho - logo.width) // 2
-            ly = c_y + (c_alto - logo.height) // 2 + 15 # Ajuste leve hacia abajo
+            ly = c_y + (c_alto - logo.height) // 2 + 10 
             flyer.paste(logo, (lx, ly), logo)
     except: pass
 
@@ -129,7 +129,6 @@ def crear_flyer(productos, tienda_nombre, flyer_count):
         draw.rectangle([ANCHO - 60, 620, ANCHO, 800], fill=EFE_NARANJA)
         draw.text((ANCHO - tw_t - 80, 655), txt_tienda, font=f_tienda, fill=BLANCO)
     else:
-        # Polígono Estilo LC
         p_x = ANCHO - tw_t - 250
         points = [(p_x, 720), (p_x + 100, 520), (ANCHO, 520), (ANCHO, 720)]
         draw.polygon(points, fill=NEGRO)
@@ -167,7 +166,7 @@ def crear_flyer(productos, tienda_nombre, flyer_count):
             img_p.thumbnail((520, 520))
             flyer.paste(img_p, (x+30, y + (760-img_p.height)//2), img_p)
             
-        tx = x + 570
+        tx = x + 560
         area_texto_w = 480 
         
         marca = str(prod['Nombre Marca']).upper()
