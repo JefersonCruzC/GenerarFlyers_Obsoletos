@@ -85,26 +85,27 @@ def crear_flyer(productos, tienda_nombre, flyer_count):
         flyer.paste(bg, (0, 0))
     except: pass
 
-    # 2. LOGO (AJUSTADO Y CENTRADO)
+    # 2. LOGO (TAMAÑO INCREMENTADO Y CENTRADO MATEMÁTICO)
     try:
         logo = Image.open(logo_path).convert("RGBA")
-        # Definir dimensiones del contenedor blanco
-        c_ancho, c_alto = 500, 400
-        c_x = ANCHO - c_ancho - 100 # Margen derecho
+        # Contenedor blanco (Reducido para que no se vea excesivamente grande)
+        c_ancho, c_alto = 520, 420
+        c_x = ANCHO - c_ancho - 80 
         
         if es_efe:
-            c_y = 50
+            c_y = 40
             draw.ellipse([c_x, c_y, c_x + c_ancho, c_y + c_ancho], fill=BLANCO)
-            logo.thumbnail((380, 380)) # Tamaño del logo
-            # Centrado matemático
+            logo.thumbnail((450, 450)) # Logo más grande
+            # Centrado exacto dentro del círculo
             lx = c_x + (c_ancho - logo.width) // 2
             ly = c_y + (c_ancho - logo.height) // 2
             flyer.paste(logo, (lx, ly), logo)
         else:
             c_y = 0
             draw.rounded_rectangle([c_x, c_y, c_x + c_ancho, c_y + c_alto], radius=60, fill=BLANCO)
-            draw.rectangle([c_x, c_y, c_x + c_ancho, c_y + 60], fill=BLANCO) # Recto arriba
-            logo.thumbnail((420, 320))
+            draw.rectangle([c_x, c_y, c_x + c_ancho, c_y + 40], fill=BLANCO) # Recto arriba
+            logo.thumbnail((460, 360)) # Logo más grande
+            # Centrado exacto dentro del rectángulo
             lx = c_x + (c_ancho - logo.width) // 2
             ly = c_y + (c_alto - logo.height) // 2
             flyer.paste(logo, (lx, ly), logo)
@@ -221,6 +222,8 @@ ss = conectar_sheets()
 df = pd.DataFrame(ss.worksheet("Detalle de Inventario").get_all_records())
 grupos = df.groupby('Tienda Retail')
 tienda_links_pdf = []
+
+
 
 for nombre_tienda, grupo in grupos:
     if not str(nombre_tienda).strip(): continue
