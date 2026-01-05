@@ -56,13 +56,11 @@ def descargar_imagen(url):
     except: return None
 
 def formatear_precio(valor):
-    s = str(valor).replace("S/.", "").replace("S/", "").strip()
-    if not s or s == "0": return "0,00"
-    if "," not in s and "." not in s and len(s) > 2:
-        s = s[:-2] + "," + s[-2:]
-    else:
-        s = s.replace(".", ",")
-        if "," not in s: s += ",00"
+    # Simplemente limpia el valor y lo devuelve como string limpio (número entero)
+    s = str(valor).replace("S/.", "").replace("S/", "").replace(",", "").strip()
+    if "." in s:
+        s = s.split(".")[0] # Quita decimales si los hubiera
+    if not s or s == "0" or s == "nan": return "0"
     return s
 
 def crear_flyer(productos, tienda_nombre, flyer_count):
@@ -85,35 +83,26 @@ def crear_flyer(productos, tienda_nombre, flyer_count):
         flyer.paste(bg, (0, 0))
     except: pass
 
-    # 2. LOGO (TAMAÑO REDUCIDO Y CENTRADO MATEMÁTICO)
+    # 2. LOGO (TAMAÑO REDUCIDO Y CENTRADO)
     try:
         logo = Image.open(logo_path).convert("RGBA")
-        
         if es_efe:
-            # Apartado blanco EFE (Círculo reducido)
-            diametro = 460 # Antes 550
+            diametro = 460
             c_x, c_y = ANCHO - diametro - 80, 40
             draw.ellipse([c_x, c_y, c_x + diametro, c_y + diametro], fill=BLANCO)
-            
-            # Logo ocupando el 85% del nuevo diámetro
             logo_w = int(diametro * 0.85)
             logo = ImageOps.contain(logo, (logo_w, logo_w), method=Image.Resampling.LANCZOS)
-            
             lx = c_x + (diametro - logo.width) // 2
             ly = c_y + (diametro - logo.height) // 2
             flyer.paste(logo, (lx, ly), logo)
         else:
-            # Apartado blanco LC (Rectángulo reducido)
-            c_ancho, c_alto = 500, 380 # Antes 600, 450
+            c_ancho, c_alto = 500, 380
             c_x, c_y = ANCHO - c_ancho - 80, 0
             draw.rounded_rectangle([c_x, c_y, c_x + c_ancho, c_y + c_alto], radius=50, fill=BLANCO)
             draw.rectangle([c_x, c_y, c_x + c_ancho, c_y + 40], fill=BLANCO) 
-            
-            # Logo ajustado al nuevo tamaño
             logo_w = int(c_ancho * 0.85)
             logo_h = int(c_alto * 0.80)
             logo = ImageOps.contain(logo, (logo_w, logo_h), method=Image.Resampling.LANCZOS)
-            
             lx = c_x + (c_ancho - logo.width) // 2
             ly = c_y + (c_alto - logo.height) // 2 + 10 
             flyer.paste(logo, (lx, ly), logo)
@@ -166,7 +155,7 @@ def crear_flyer(productos, tienda_nombre, flyer_count):
             img_p.thumbnail((520, 520))
             flyer.paste(img_p, (x+30, y + (760-img_p.height)//2), img_p)
             
-        tx = x + 560
+        tx = x + 570
         area_texto_w = 480 
         
         marca = str(prod['Nombre Marca']).upper()
@@ -192,7 +181,7 @@ def crear_flyer(productos, tienda_nombre, flyer_count):
             
         # BLOQUES DE PRECIO
         ty_b = y + 450
-        p_val = formatear_precio(prod['Actualizacion Precios'])
+        p_val = formatear_precio(prod.get('Actualizacion Precios', 0))
         rec_color_p = EFE_AZUL if es_efe else LC_AMARILLO
         rec_color_s = EFE_NARANJA if es_efe else NEGRO
         
