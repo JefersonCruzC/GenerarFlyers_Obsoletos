@@ -192,7 +192,7 @@ def crear_flyer(productos, tienda_nombre, flyer_count):
             
         # BLOQUES DE PRECIO
         ty_b = y + 450
-        p_val = formatear_precio(prod['S/.ACTUAL'])
+        p_val = formatear_precio(prod['Actualizacion Precios'])
         rec_color_p = EFE_AZUL if es_efe else LC_AMARILLO
         rec_color_s = EFE_NARANJA if es_efe else NEGRO
         
