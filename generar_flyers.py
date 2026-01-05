@@ -85,18 +85,18 @@ def crear_flyer(productos, tienda_nombre, flyer_count):
         flyer.paste(bg, (0, 0))
     except: pass
 
-    # 2. LOGO (TAMAÑO INCREMENTADO)
+    # 2. LOGO (TAMAÑO MÁXIMO)
     try:
         logo = Image.open(logo_path).convert("RGBA")
         if es_efe:
             draw.ellipse([ANCHO-530, 50, ANCHO-130, 450], fill=BLANCO)
-            logo.thumbnail((420, 420)) # Incrementado
+            logo.thumbnail((480, 480)) # Aumentado al máximo
             flyer.paste(logo, (ANCHO-530 + (400-logo.width)//2, 50 + (400-logo.height)//2), logo)
         else:
             draw.rounded_rectangle([ANCHO-530, 0, ANCHO-130, 380], radius=60, fill=BLANCO)
             draw.rectangle([ANCHO-530, 0, ANCHO-130, 60], fill=BLANCO)
-            logo.thumbnail((420, 420)) # Incrementado
-            flyer.paste(logo, (ANCHO-530 + (400-logo.width)//2, 20), logo)
+            logo.thumbnail((480, 480)) # Aumentado al máximo
+            flyer.paste(logo, (ANCHO-530 + (400-logo.width)//2, 10), logo)
     except: pass
 
     # 3. NOMBRE TIENDA
@@ -113,7 +113,7 @@ def crear_flyer(productos, tienda_nombre, flyer_count):
         draw.polygon(points, fill=NEGRO)
         draw.text((ANCHO - tw_t - 100, 550), txt_tienda, font=f_tienda, fill=LC_AMARILLO)
 
-    # 4. FECHA GENERADO (BOLD)
+    # 4. FECHA GENERADO
     f_fecha = ImageFont.truetype(FONT_BOLD_COND, 45)
     txt_gen = f"Generado: {fecha_peru}"
     tw_g = draw.textlength(txt_gen, font=f_fecha)
@@ -146,60 +146,57 @@ def crear_flyer(productos, tienda_nombre, flyer_count):
             flyer.paste(img_p, (x+30, y + (700-img_p.height)//2), img_p)
             
         tx = x + 560
-        area_texto_w = 480
+        area_texto_w = 480 # Ancho máximo para texto antes de chocar
         
-        # Marca
         marca = str(prod['Nombre Marca']).upper()
         draw.text((tx + (area_texto_w - draw.textlength(marca, f_marca_prod))//2, y+50), marca, font=f_marca_prod, fill=GRIS_MARCA)
         
-        # Título Dinámico con márgenes seguros
+        # Título Dinámico con control estricto de margen
         titulo = str(prod['Nombre Articulo'])
-        current_f_size = 65
-        f_art_prod = ImageFont.truetype(FONT_REGULAR_COND, current_f_size)
-        lines = textwrap.wrap(titulo, width=19) # Width reducido para alejar del borde
+        f_size = 65
+        f_art_prod = ImageFont.truetype(FONT_REGULAR_COND, f_size)
+        lines = textwrap.wrap(titulo, width=17) # Width reducido para asegurar margen
         
-        if len(lines) > 3:
-            current_f_size = 55
-            f_art_prod = ImageFont.truetype(FONT_REGULAR_COND, current_f_size)
-            lines = textwrap.wrap(titulo, width=23)
+        # Reducción de fuente si sigue siendo muy ancho
+        while f_size > 40:
+            test_line_w = max([draw.textlength(line, font=f_art_prod) for line in lines])
+            if test_line_w > area_texto_w - 20:
+                f_size -= 5
+                f_art_prod = ImageFont.truetype(FONT_REGULAR_COND, f_size)
+            else:
+                break
 
         ty = y + 120
         for line in lines[:4]:
             draw.text((tx, ty), line, font=f_art_prod, fill=NEGRO)
-            ty += current_f_size + 5
+            ty += f_size + 5
             
-        # BLOQUES DE PRECIO (Centrado robusto)
+        # BLOQUES DE PRECIO
         ty_b = y + 420
         p_val = formatear_precio(prod['S/.ACTUAL'])
         rec_color_p = EFE_AZUL if es_efe else LC_AMARILLO
         rec_color_s = EFE_NARANJA if es_efe else NEGRO
         
-        # Recuadro Precio
         draw.rounded_rectangle([tx, ty_b, tx+area_texto_w, ty_b + 140], radius=35, fill=rec_color_p)
         draw.rectangle([tx, ty_b+70, tx+area_texto_w, ty_b+140], fill=rec_color_p)
         
-        # ESCALADO DINÁMICO DE PRECIO PARA EVITAR DESBORDE
-        p_f_size = 125
-        s_f_size = 75
+        # Centrado de Precio y Símbolo
+        p_f_size, s_f_size = 125, 75
         f_p = ImageFont.truetype(FONT_EXTRABOLD, p_f_size)
         f_s = ImageFont.truetype(FONT_REGULAR_COND, s_f_size)
         
-        tw_s = draw.textlength("S/ ", font=f_s)
-        tw_p = draw.textlength(p_val, font=f_p)
-        
-        # Si el precio es muy largo (ej. S/ 10.999,00), reducimos fuente
-        if (tw_s + tw_p) > (area_texto_w - 40):
-            p_f_size = 100
-            s_f_size = 60
+        # Ajuste si el precio es demasiado largo
+        while (draw.textlength("S/ ", font=f_s) + draw.textlength(p_val, font=f_p)) > (area_texto_w - 30):
+            p_f_size -= 10
+            s_f_size -= 5
             f_p = ImageFont.truetype(FONT_EXTRABOLD, p_f_size)
             f_s = ImageFont.truetype(FONT_REGULAR_COND, s_f_size)
-            tw_s = draw.textlength("S/ ", font=f_s)
-            tw_p = draw.textlength(p_val, font=f_p)
 
-        start_x_p = tx + (area_texto_w - (tw_s + tw_p)) // 2
+        total_p_w = draw.textlength("S/ ", font=f_s) + draw.textlength(p_val, font=f_p)
+        start_x_p = tx + (area_texto_w - total_p_w) // 2
         
         draw.text((start_x_p, ty_b + 35), "S/ ", font=f_s, fill=BLANCO if es_efe else NEGRO)
-        draw.text((start_x_p + tw_s, ty_b + 10), p_val, font=f_p, fill=BLANCO if es_efe else NEGRO)
+        draw.text((start_x_p + draw.textlength("S/ ", font=f_s), ty_b + 10), p_val, font=f_p, fill=BLANCO if es_efe else NEGRO)
         
         # SKU
         sku_val = str(prod['%Cod Articulo'])
@@ -208,7 +205,7 @@ def crear_flyer(productos, tienda_nombre, flyer_count):
         tw_sku = draw.textlength(sku_val, font=f_sku_prod)
         draw.text((tx + (area_texto_w - tw_sku)//2, ty_b + 150), sku_val, font=f_sku_prod, fill=BLANCO)
 
-    # 7. PIE DE PÁGINA REDUCIDO (MÁS AIRE AL DISEÑO)
+    # 7. PIE DE PÁGINA REDUCIDO
     draw.rectangle([0, ALTO-150, ANCHO, ALTO], fill=BLANCO)
 
     path = os.path.join(output_dir, f"{tienda_nombre}_{flyer_count}.jpg")
