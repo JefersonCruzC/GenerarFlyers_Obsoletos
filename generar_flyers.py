@@ -85,18 +85,19 @@ def crear_flyer(productos, tienda_nombre, flyer_count):
         flyer.paste(bg, (0, 0))
     except: pass
 
-    # 2. LOGO (TAMAÑO MÁXIMO)
+    # 2. LOGO (CAMBIO A FIT PARA MÁXIMO TAMAÑO)
     try:
         logo = Image.open(logo_path).convert("RGBA")
         if es_efe:
-            draw.ellipse([ANCHO-600, 30, ANCHO-100, 530], fill=BLANCO)
-            logo.thumbnail((550, 550)) # Logo agrandado
-            flyer.paste(logo, (ANCHO-600 + (500-logo.width)//2, 30 + (500-logo.height)//2), logo)
+            draw.ellipse([ANCHO-620, 30, ANCHO-80, 570], fill=BLANCO)
+            # FIT fuerza al logo a llenar el espacio definido
+            logo = ImageOps.fit(logo, (480, 480), method=Image.Resampling.LANCZOS)
+            flyer.paste(logo, (ANCHO-620 + (540-480)//2, 30 + (540-480)//2), logo)
         else:
-            draw.rounded_rectangle([ANCHO-600, 0, ANCHO-100, 400], radius=60, fill=BLANCO)
-            draw.rectangle([ANCHO-600, 0, ANCHO-100, 60], fill=BLANCO)
-            logo.thumbnail((550, 550)) # Logo agrandado
-            flyer.paste(logo, (ANCHO-600 + (500-logo.width)//2, 10), logo)
+            draw.rounded_rectangle([ANCHO-620, 0, ANCHO-80, 420], radius=60, fill=BLANCO)
+            draw.rectangle([ANCHO-620, 0, ANCHO-80, 60], fill=BLANCO)
+            logo = ImageOps.fit(logo, (500, 380), method=Image.Resampling.LANCZOS)
+            flyer.paste(logo, (ANCHO-620 + (540-500)//2, 20), logo)
     except: pass
 
     # 3. NOMBRE TIENDA
@@ -130,7 +131,7 @@ def crear_flyer(productos, tienda_nombre, flyer_count):
 
     # 6. PRODUCTOS (REAJUSTE DE ESPACIADO VERTICAL)
     anchos = [110, 1300]
-    # Se añade más espacio entre filas: de 700px de alto a 800px de separación
+    # Espaciado aumentado significativamente para evitar que se vean pegados
     altos = [1350, 2150, 2950] 
     
     f_marca_prod = ImageFont.truetype(FONT_SEMIBOLD, 50)
@@ -139,13 +140,13 @@ def crear_flyer(productos, tienda_nombre, flyer_count):
     for i, prod in enumerate(productos):
         if i >= 6: break
         x, y = anchos[i%2], altos[i//2]
-        # Recuadro blanco de producto
-        draw.rounded_rectangle([x, y, x+1090, y+740], radius=70, fill=BLANCO)
+        # Recuadro blanco de producto con más altura para el texto
+        draw.rounded_rectangle([x, y, x+1090, y+760], radius=70, fill=BLANCO)
         
         img_p = descargar_imagen(prod['image_link'])
         if img_p:
             img_p.thumbnail((520, 520))
-            flyer.paste(img_p, (x+30, y + (740-img_p.height)//2), img_p)
+            flyer.paste(img_p, (x+30, y + (760-img_p.height)//2), img_p)
             
         tx = x + 570
         area_texto_w = 480 
@@ -173,7 +174,7 @@ def crear_flyer(productos, tienda_nombre, flyer_count):
             ty += f_size + 5
             
         # BLOQUES DE PRECIO
-        ty_b = y + 430
+        ty_b = y + 450 # Bajado un poco para dar aire al título
         p_val = formatear_precio(prod['S/.ACTUAL'])
         rec_color_p = EFE_AZUL if es_efe else LC_AMARILLO
         rec_color_s = EFE_NARANJA if es_efe else NEGRO
@@ -203,9 +204,6 @@ def crear_flyer(productos, tienda_nombre, flyer_count):
         draw.rectangle([tx, ty_b + 140, tx+area_texto_w, ty_b + 175], fill=rec_color_s)
         tw_sku = draw.textlength(sku_val, font=f_sku_prod)
         draw.text((tx + (area_texto_w - tw_sku)//2, ty_b + 150), sku_val, font=f_sku_prod, fill=BLANCO)
-
-    # 7. PIE DE PÁGINA (Sin franja blanca, fondo de marca hasta el final)
-    # Se elimina el draw.rectangle blanco del final.
 
     path = os.path.join(output_dir, f"{tienda_nombre}_{flyer_count}.jpg")
     flyer.save(path, "JPEG", quality=95)
