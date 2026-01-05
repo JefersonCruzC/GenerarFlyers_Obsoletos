@@ -91,12 +91,12 @@ def crear_flyer(productos, tienda_nombre, flyer_count):
         if es_efe:
             draw.ellipse([ANCHO-620, 30, ANCHO-80, 570], fill=BLANCO)
             # FIT fuerza al logo a llenar el espacio definido
-            logo = ImageOps.fit(logo, (400, 400), method=Image.Resampling.LANCZOS)
+            logo = ImageOps.fit(logo, (200, 200), method=Image.Resampling.LANCZOS)
             flyer.paste(logo, (ANCHO-620 + (540-480)//2, 30 + (540-480)//2), logo)
         else:
             draw.rounded_rectangle([ANCHO-620, 0, ANCHO-80, 420], radius=60, fill=BLANCO)
             draw.rectangle([ANCHO-620, 0, ANCHO-80, 60], fill=BLANCO)
-            logo = ImageOps.fit(logo, (420, 320), method=Image.Resampling.LANCZOS)
+            logo = ImageOps.fit(logo, (280, 200), method=Image.Resampling.LANCZOS)
             flyer.paste(logo, (ANCHO-620 + (540-500)//2, 20), logo)
     except: pass
 
