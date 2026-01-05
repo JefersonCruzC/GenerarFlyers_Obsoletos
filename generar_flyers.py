@@ -9,6 +9,7 @@ import textwrap
 import time
 from datetime import datetime, timedelta
 from oauth2client.service_account import ServiceAccountCredentials
+from concurrent.futures import ThreadPoolExecutor # Para ejecución rápida
 
 # --- CONFIGURACIÓN DE LIENZO ---
 ANCHO, ALTO = 2500, 3750
@@ -56,10 +57,14 @@ def descargar_imagen(url):
     except: return None
 
 def formatear_precio(valor):
-    # Simplemente limpia el valor y lo devuelve como string limpio (número entero)
+    # CORRECCIÓN: Si el valor es 1.539, el punto es de miles. 
+    # Primero quitamos el símbolo de moneda y espacios.
     s = str(valor).replace("S/.", "").replace("S/", "").replace(",", "").strip()
-    if "." in s:
-        s = s.split(".")[0] # Quita decimales si los hubiera
+    
+    # Si detectamos un punto, lo eliminamos (asumimos que en tu data actual son miles)
+    # Ejemplo: "1.539" -> "1539"
+    s = s.replace(".", "")
+    
     if not s or s == "0" or s == "nan": return "0"
     return s
 
@@ -83,7 +88,7 @@ def crear_flyer(productos, tienda_nombre, flyer_count):
         flyer.paste(bg, (0, 0))
     except: pass
 
-    # 2. LOGO (TAMAÑO REDUCIDO Y CENTRADO)
+    # 2. LOGO
     try:
         logo = Image.open(logo_path).convert("RGBA")
         if es_efe:
@@ -141,7 +146,6 @@ def crear_flyer(productos, tienda_nombre, flyer_count):
     # 6. PRODUCTOS
     anchos = [110, 1300]
     altos = [1350, 2150, 2950] 
-    
     f_marca_prod = ImageFont.truetype(FONT_SEMIBOLD, 50)
     f_sku_prod = ImageFont.truetype(FONT_BOLD_COND, 55)
 
@@ -157,7 +161,6 @@ def crear_flyer(productos, tienda_nombre, flyer_count):
             
         tx = x + 570
         area_texto_w = 480 
-        
         marca = str(prod['Nombre Marca']).upper()
         draw.text((tx + (area_texto_w - draw.textlength(marca, f_marca_prod))//2, y+50), marca, font=f_marca_prod, fill=GRIS_MARCA)
         
@@ -211,23 +214,17 @@ def crear_flyer(productos, tienda_nombre, flyer_count):
         tw_sku = draw.textlength(sku_val, font=f_sku_prod)
         draw.text((tx + (area_texto_w - tw_sku)//2, ty_b + 150), sku_val, font=f_sku_prod, fill=BLANCO)
 
-    path = os.path.join(output_dir, f"{tienda_nombre}_{flyer_count}.jpg")
-    flyer.save(path, "JPEG", quality=95)
     return flyer
 
-# --- PROCESO ---
-ss = conectar_sheets()
-df = pd.DataFrame(ss.worksheet("Detalle de Inventario").get_all_records())
-grupos = df.groupby('Tienda Retail')
-tienda_links_pdf = []
-
-for nombre_tienda, grupo in grupos:
-    if not str(nombre_tienda).strip(): continue
-    print(f"Generando: {nombre_tienda}")
+def procesar_tienda(nombre_tienda, grupo):
+    """Función para procesar una sola tienda (usada por multithreading)"""
+    print(f"Procesando: {nombre_tienda}")
     paginas = []
     indices = grupo.index.tolist()
+    
+    # Generar flyers
     for i in range(0, len(indices), 6):
-        bloque = df.loc[indices[i:i+6]].to_dict('records')
+        bloque = grupo.iloc[i:i+6].to_dict('records')
         img_f = crear_flyer(bloque, str(nombre_tienda), (i//6)+1)
         paginas.append(img_f.convert("RGB"))
     
@@ -236,12 +233,30 @@ for nombre_tienda, grupo in grupos:
         pdf_fn = f"PDF_{t_clean}.pdf"
         pdf_path = os.path.join(output_dir, pdf_fn)
         paginas[0].save(pdf_path, save_all=True, append_images=paginas[1:])
-        tienda_links_pdf.append([nombre_tienda, f"{URL_BASE_PAGES}{pdf_fn}"])
+        return [nombre_tienda, f"{URL_BASE_PAGES}{pdf_fn}"]
+    return None
 
+# --- PROCESO PRINCIPAL ---
+ss = conectar_sheets()
+df = pd.DataFrame(ss.worksheet("Detalle de Inventario").get_all_records())
+grupos = df.groupby('Tienda Retail')
+
+tienda_links_pdf = []
+
+# OPTIMIZACIÓN: Procesamos tiendas en paralelo (máximo 4 a la vez para no saturar memoria)
+with ThreadPoolExecutor(max_workers=4) as executor:
+    futuros = [executor.submit(procesar_tienda, n, g) for n, g in grupos if str(n).strip()]
+    for f in futuros:
+        resultado = f.result()
+        if resultado:
+            tienda_links_pdf.append(resultado)
+
+# Actualizar Google Sheets con los links
 try:
     hoja_pdf = ss.worksheet("FLYER_TIENDA")
 except:
     hoja_pdf = ss.add_worksheet(title="FLYER_TIENDA", rows="100", cols="2")
+
 hoja_pdf.clear()
 hoja_pdf.update('A1', [["TIENDA RETAIL", "LINK PDF FLYERS"]] + tienda_links_pdf)
-print("¡Todo listo!")
+print("¡Todo listo en tiempo record!")
